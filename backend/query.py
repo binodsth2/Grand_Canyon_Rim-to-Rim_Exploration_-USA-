@@ -1,4 +1,4 @@
-from database import VectorDB
+from backend.database import VectorDB
 
 # Connect to the database
 db = VectorDB()
