@@ -1,0 +1,7 @@
+chromadb
+langchain
+fastapi
+uvicorn[standard]
+python-dotenv
+tqdm
+sentence-transformers

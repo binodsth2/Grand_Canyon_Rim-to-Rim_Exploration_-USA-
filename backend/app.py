@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uuid
 from typing import Dict, List
-from backend.query import search_location
+from backend.query import search_location, look_up_artifact, change_location, calculate_heat_risk
 
 sessions: Dict[str, Dict] = {}
 
@@ -53,19 +53,11 @@ def move(session_id: str, req: MoveRequest):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    current = session["current_room"]
-    target = req.to
+    try:
+        target = change_location(session, req.to)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    if target not in GRAPH:
-        raise HTTPException(status_code=400, detail="Unknown target room")
-
-    if target not in GRAPH[current]:
-        raise HTTPException(status_code=400, detail=f"Cannot move from {current} to {target}")
-
-    if target == "colorado_river" and "electrolyte_packets" not in session["inventory"]:
-        raise HTTPException(status_code=403, detail="Electrolyte Packets are required to move to the Colorado River")
-
-    session["current_room"] = target
     return {"session_id": session_id, "current_room": target, "inventory": session["inventory"]}
 
 
@@ -84,5 +76,26 @@ def query_location(req: queryRequest):
     session = sessions.get(req.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
     current_room = session["current_room"]
-    return search_location(req.question, current_room)
+    artifact = look_up_artifact(req.question, current_room)
+    if artifact:
+        return {"answer": artifact, "current_room": current_room}
+    return {"answer": "No relevant information found in this location.", "current_room": current_room}
+
+
+@app.get("/session/{session_id}/heat-risk")
+def heat_risk(session_id: str):
+    session = sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    temperature = 85
+    elevation_drop = 1200
+    return {
+        "session_id": session_id,
+        "current_room": session["current_room"],
+        "heat_risk": calculate_heat_risk(temperature, elevation_drop),
+        "temperature": temperature,
+        "elevation_drop": elevation_drop,
+    }
