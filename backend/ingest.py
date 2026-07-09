@@ -1,6 +1,6 @@
 import os
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from database import VectorDB
+from backend.database import VectorDB
 
 # Initializing components
 db = VectorDB()

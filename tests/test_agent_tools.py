@@ -32,6 +32,10 @@ class AgentToolsTests(unittest.TestCase):
         self.assertEqual(query.calculate_heat_risk(85, 1100), "high")
         self.assertEqual(query.calculate_heat_risk(95, 1800), "critical")
 
+    def test_calculate_heat_risk_returns_low_for_invalid_values(self):
+        self.assertEqual(query.calculate_heat_risk(None, 500), "low")
+        self.assertEqual(query.calculate_heat_risk(85, None), "low")
+
 
 if __name__ == "__main__":
     unittest.main()

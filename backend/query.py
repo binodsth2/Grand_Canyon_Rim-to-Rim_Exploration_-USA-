@@ -29,19 +29,28 @@ def search_location(question, current_room):
 
 
 def look_up_artifact(item, current_room):
+    if not item or not current_room:
+        return None
+
     results = collection.query(
         query_texts=[item],
         n_results=1,
         where={"room": current_room}
     )
 
-    if results.get("documents") and results["documents"] and results["documents"][0]:
-        return results["documents"][0][0]
+    documents = results.get("documents") or []
+    if documents and documents[0]:
+        return documents[0][0]
     return None
 
 
 def change_location(session, target_room):
-    current_room = session["current_room"]
+    if not isinstance(session, dict):
+        raise ValueError("Session must be a dictionary")
+
+    current_room = session.get("current_room")
+    if not current_room:
+        raise ValueError("Current room is not set")
 
     if target_room not in GRAPH:
         raise ValueError("Unknown target room")
@@ -57,11 +66,17 @@ def change_location(session, target_room):
 
 
 def calculate_heat_risk(temperature, elevation_drop):
-    if temperature >= 95 and elevation_drop >= 1500:
+    try:
+        temp_value = float(temperature)
+        drop_value = float(elevation_drop)
+    except (TypeError, ValueError):
+        return "low"
+
+    if temp_value >= 95 and drop_value >= 1500:
         return "critical"
-    if temperature >= 85 and elevation_drop >= 1000:
+    if temp_value >= 85 and drop_value >= 1000:
         return "high"
-    if temperature >= 75:
+    if temp_value >= 75:
         return "moderate"
     return "low"
 
