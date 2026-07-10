@@ -2,9 +2,11 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uuid
 from typing import Dict, List
+from backend.agent import AgentService
 from backend.query import search_location, look_up_artifact, change_location, calculate_heat_risk
 
 sessions: Dict[str, Dict] = {}
+agent_service = AgentService()
 
 #  Directed graph adjacency for Bright Angel Trail
 GRAPH = {
@@ -29,6 +31,17 @@ class PickupRequest(BaseModel):
 class queryRequest(BaseModel):
     session_id: str
     question: str
+
+class ChatRequest(BaseModel):
+    session_id: str
+    message: str
+
+@app.get("/")
+def root():
+    return {
+        "message": "Grand Canyon Rim-to-Rim Exploration API",
+        "endpoints": ["/session", "/session/{session_id}", "/session/{session_id}/move", "/query", "/chat"]
+    }
 
 @app.post("/session", response_model=CreateSessionResponse)
 def create_session():
@@ -99,3 +112,12 @@ def heat_risk(session_id: str):
         "temperature": temperature,
         "elevation_drop": elevation_drop,
     }
+
+@app.post("/chat")
+def chat(req: ChatRequest):
+    session = sessions.get(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    response = agent_service.respond(req.message, session)
+    return {"session_id": req.session_id, "response": response, "current_room": session["current_room"]}
