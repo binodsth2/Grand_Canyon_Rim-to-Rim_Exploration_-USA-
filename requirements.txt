@@ -5,3 +5,11 @@ uvicorn[standard]
 python-dotenv
 tqdm
 sentence-transformers
+openai-whisper
+gTTS
+python-multipart
+openai-whisper
+gTTS
+python-multipart
+pydub
+ffmpeg

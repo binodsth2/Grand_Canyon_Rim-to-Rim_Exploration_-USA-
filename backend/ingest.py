@@ -1,6 +1,11 @@
 import os
+
+try:
+    from backend.database import VectorDB
+except ModuleNotFoundError:  # pragma: no cover - direct script execution fallback
+    from database import VectorDB
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from backend.database import VectorDB
 
 # Initializing components
 db = VectorDB()
@@ -16,15 +21,20 @@ LOCATION_FILES = {
 }
 
 def ingest_data():
+    if collection is None:
+        raise RuntimeError("Vector collection could not be initialized. Check chromadb and embeddings setup.")
+
     # Initializing Langchain text splitter
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50,
         separators=["\n\n", "\n", ".", " "]
     )
+    total_chunks = 0
+
     for filename, room_tag in LOCATION_FILES.items():
         file_path = os.path.join(DATA_DIR, filename)
-        
+
         if not os.path.exists(file_path):
             print(f"Skipping {filename}: File not found in {DATA_DIR}.")
             continue
@@ -45,7 +55,10 @@ def ingest_data():
                     metadatas=[{"room": room_tag}],
                     ids=[doc_id]
                 )
-    print(f"Ingested {filename} into {len(chunks)} chunks and tagged with room: '{room_tag}'")
+            total_chunks += len(chunks)
+            print(f"Ingested {filename} into {len(chunks)} chunks and tagged with room: '{room_tag}'")
+
+    print(f"\nTotal documents ingested: {total_chunks}")
 
 
 if __name__ == "__main__":

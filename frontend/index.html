@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grand Canyon Rim-to-Rim Explorer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; max-width: 900px; }
+    .panel { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    button, input, textarea, select { margin-top: 0.5rem; display: block; width: 100%; padding: 0.75rem; }
+    #responses { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Grand Canyon Rim-to-Rim Exploration</h1>
+  <div class="panel">
+    <button id="start-session">Start Session</button>
+    <div id="session-info"></div>
+  </div>
+
+  <div class="panel">
+    <label for="target-room">Move to room</label>
+    <select id="target-room">
+      <option value="mather_point">Mather Point</option>
+      <option value="indian_garden">Indian Garden</option>
+      <option value="colorado_river">Colorado River</option>
+    </select>
+    <button id="move-room">Move</button>
+  </div>
+
+  <div class="panel">
+    <label for="question">Ask a question</label>
+    <textarea id="question" rows="3">What can I see here?</textarea>
+    <button id="ask-question">Ask</button>
+  </div>
+
+  <div class="panel">
+    <label for="message">Chat</label>
+    <textarea id="message" rows="3">Take me to the Colorado River</textarea>
+    <button id="chat">Chat</button>
+  </div>
+
+  <div class="panel">
+    <label for="voice-file">Voice input</label>
+    <input id="voice-file" type="file" accept="audio/*" />
+    <button id="voice-chat">Send Voice</button>
+  </div>
+
+  <div class="panel">
+    <h2>Responses</h2>
+    <pre id="responses"></pre>
+  </div>
+
+  <script>
+    const state = { sessionId: null };
+    const apiBase = 'http://localhost:8000';
+
+    function show(message) {
+      const responses = document.getElementById('responses');
+      responses.textContent += message + '\n\n';
+    }
+
+    async function request(path, options = {}) {
+      const response = await fetch(apiBase + path, options);
+      return response.json ? response.json() : response.text();
+    }
+
+    document.getElementById('start-session').onclick = async () => {
+      const data = await request('/session', { method: 'POST' });
+      state.sessionId = data.session_id;
+      document.getElementById('session-info').textContent = `Session: ${state.sessionId} | Room: ${data.current_room}`;
+      show(JSON.stringify(data, null, 2));
+    };
+
+    document.getElementById('move-room').onclick = async () => {
+      if (!state.sessionId) return show('Start a session first.');
+      const room = document.getElementById('target-room').value;
+      const data = await request(`/session/${state.sessionId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: room })
+      });
+      show(JSON.stringify(data, null, 2));
+    };
+
+    document.getElementById('ask-question').onclick = async () => {
+      if (!state.sessionId) return show('Start a session first.');
+      const question = document.getElementById('question').value;
+      const data = await request('/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: state.sessionId, question })
+      });
+      show(JSON.stringify(data, null, 2));
+    };
+
+    document.getElementById('chat').onclick = async () => {
+      if (!state.sessionId) return show('Start a session first.');
+      const value = document.getElementById('message').value;
+      const data = await request('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: state.sessionId, message: value })
+      });
+      show(JSON.stringify(data, null, 2));
+    };
+
+    document.getElementById('voice-chat').onclick = async () => {
+      if (!state.sessionId) return show('Start a session first.');
+      const fileInput = document.getElementById('voice-file');
+      const file = fileInput.files[0];
+      if (!file) return show('Choose a voice file first.');
+
+      const formData = new FormData();
+      formData.append('session_id', state.sessionId);
+      formData.append('audio', file);
+
+      const response = await fetch(apiBase + '/voice-chat', {
+        method: 'POST',
+        body: formData
+      });
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play();
+      show(`Transcript: ${response.headers.get('x-transcript')}`);
+      show(`Response: ${response.headers.get('x-response')}`);
+    };
+  </script>
+</body>
+</html>

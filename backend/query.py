@@ -1,8 +1,12 @@
 from backend.database import VectorDB
 
 # Connect to the database
-db = VectorDB()
-collection = db.get_or_create_collection()
+try:
+    db = VectorDB()
+    collection = db.get_or_create_collection()
+except Exception:  # pragma: no cover - fallback when vector DB dependencies are unavailable
+    db = None
+    collection = None
 
 GRAPH = {
     "mather_point": ["indian_garden"],
@@ -14,6 +18,10 @@ GRAPH = {
 def search_location(question, current_room):
     print(f"\n📍 Agent is currently in room: {current_room}")
     print(f"❓ Question: '{question}'")
+
+    if collection is None:
+        print("   -> Vector storage is unavailable in this environment.")
+        return
 
     results = collection.query(
         query_texts=[question],
@@ -29,7 +37,7 @@ def search_location(question, current_room):
 
 
 def look_up_artifact(item, current_room):
-    if not item or not current_room:
+    if not item or not current_room or collection is None:
         return None
 
     results = collection.query(
@@ -58,7 +66,13 @@ def change_location(session, target_room):
     if target_room not in GRAPH[current_room]:
         raise ValueError(f"Cannot move from {current_room} to {target_room}")
 
-    if target_room == "colorado_river" and "electrolyte_packets" not in session.get("inventory", []):
+    inventory = session.get("inventory", [])
+    normalized_inventory = {
+        str(item).strip().lower().replace(" ", "_")
+        for item in inventory
+    }
+
+    if target_room == "colorado_river" and "electrolyte_packets" not in normalized_inventory:
         raise ValueError("Electrolyte Packets are required to move to the Colorado River")
 
     session["current_room"] = target_room
